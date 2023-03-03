@@ -344,7 +344,7 @@ tst <- brm(
 lv <- c("b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban")
 lb <- c("Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban")
 
-plot_e <- function(x) {
+prep_e <- function(x) {
     x %>%
     as_tibble() %>%
     apply(2, quantile, probs = c(.025, .25, .5, .75, .975)) %>%
@@ -356,7 +356,8 @@ plot_e <- function(x) {
         mutate(name = factor(name, lv, lb))
 }
 
-fe <- plot_e(tst) %>%
+plot_e <- function(data) {
+    data %>%
     ggplot(aes(name, `50%`)) +
     geom_hline(yintercept = 0, linetype = "dotted") +
     geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
@@ -367,6 +368,9 @@ fe <- plot_e(tst) %>%
         title = "Estimated coefficients",
         x = "", y = "Coeficient (logit scale)"
     )
+}
+
+fe <- prep_e(tst) %>% plot_e()
 
 library('emmeans')
 em <- emmeans(
@@ -393,8 +397,6 @@ fi <- em %>%
     labs(y = "Total score", x = '', title = "Estimated score")
 
 fe + fi + plot_annotation(tag_levels = "A")
-# plot.brmsfit(tst, plot = T, ask = F, combo = 'dens')
-# brm_multiple()
 ```
 
 ### New subgroup from Maya
@@ -425,17 +427,7 @@ tst <- brm(
 lv <- c( "b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban" )
 lb <- c( "Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban" )
 
-fe <- plot_e(tst) %>%
-    ggplot(aes(name, `50%`)) +
-    geom_hline(yintercept = 0, linetype = "dotted") +
-    geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
-    geom_linerange(aes(ymin = `25%`, ymax = `75%`), size = 1.5) +
-    geom_point(shape = 21, fill = "grey90", size = 2) +
-    coord_flip() +
-    labs(
-        title = "Estimated coefficients",
-        x = "", y = "Coeficient (logit scale)"
-    )
+fe <- prep_e(tst) %>% plot_e()
 
 em <- emmeans(
     tst, list("itt", "age", "edu", "work", "partner", "momconnect", "area"),
@@ -546,10 +538,10 @@ lv <- c("b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workY
 lb <- c("Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban")
 
 bind_rows(
-    "Pregnancy care" = plot_e(mpc),
-    "Breastfeed" = plot_e(mbf),
-    "Newborn care" = plot_e(mnc),
-    "Breastfeed & Newborn care" = plot_e(mbfnc),
+    "Pregnancy care" = prep_e(mpc),
+    "Breastfeed" = prep_e(mbf),
+    "Newborn care" = prep_e(mnc),
+    "Breastfeed & Newborn care" = prep_e(mbfnc),
     .id = "sub"
 ) %>%
     ggplot(aes(name, `50%`)) +
