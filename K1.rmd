@@ -67,6 +67,7 @@ d %<>%
 
 CHANGES:
 
+- change removed questions to `r c(21, 23, 34:35)`
 - Group 1 individual in no formal education to primary school
 
 Some issues:
@@ -398,11 +399,11 @@ fe + fi + plot_annotation(tag_levels = "A")
 
 ### New subgroup from Maya
 
-Remove questions `c(21, 23, 30, 32:35)`
+Remove questions `r c(21, 23, 34:35)`
 
 ```{r new_subgroup, fig.dim = c(9, 4)}
 library(tidyselect)
-remove_ls <- c(21, 23, 30, 32:35) %>% paste0("k", .)
+remove_ls <- c(21, 23, 34:35) %>% paste0("k", .)
 
 n = 28 - length(remove_ls)
 
