@@ -557,3 +557,58 @@ bind_rows(
         )
 ```
 
+## MomConnect outcome
+
+Use a subset of questions related to momConnect including `r c(10:13, 31, 36)`
+
+```{r momconnect_question, fig.dim = c(9, 4)}
+include_ls <- c(10:13, 31,36) %>% paste0("k", .)
+
+n = length(remove_ls)
+
+dm1 <- complete(dm, 1) %>%
+    select(itt, age, edu, work, partner, momconnect, area, id_, remove_ls) %>%
+    mutate(score = rowSums(across(starts_with("k"))), iid = id_, n = n)
+    
+tst <- brm(
+    score | trials(n) ~ itt + age + edu + work + partner + momconnect + area,
+    data = dm1,
+    family = beta_binomial(),
+    prior = c(
+        set_prior("normal(0,3)", class = "Intercept"),
+        set_prior("normal(0,3)", class = "b")
+    ),
+    chains = 1, refresh = 0
+)
+
+lv <- c( "b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban" )
+lb <- c( "Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban" )
+
+fe <- prep_e(tst) %>% plot_e()
+
+em <- emmeans(
+    tst, list("itt", "age", "edu", "work", "partner", "momconnect", "area"),
+    type = "response", offset = 0
+)
+
+lv <- c("itt", "age", "edu", "work", "partner", "momconnect", "area")
+lb <- c("Intervention", "Age", "Education", "Working", "Have a partner", "Use MomConnect", "Area")
+
+fi <- em %>%
+    purrr::map(as_tibble) %>%
+    bind_rows() %>%
+    pivot_longer(c(itt, age, edu, work, partner, momconnect, area)) %>%
+    drop_na() %>%
+    mutate(name = factor(name, lv, lb)) %>%
+    mutate(across(1:3, function(x) x * n)) %>%
+    ggplot(aes(name, prob, ymin = lower.HPD, ymax = upper.HPD, color = value)) +
+    geom_linerange(position = position_dodge2(.51)) +
+    geom_point(position = position_dodge2(.51)) +
+    geom_text(aes(y = upper.HPD+.21, label = value), position = position_dodge2(1), size = 3) +
+    coord_flip() +
+    guides(color = 'none') +
+    labs(y = "Total score", x = '', title = "Estimated score")
+
+fe + fi + plot_annotation(tag_levels = "A")
+```
+
