@@ -343,7 +343,8 @@ tst <- brm(
 lv <- c("b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban")
 lb <- c("Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban")
 
-fe <- tst %>%
+plot_e <- function(x) {
+    x %>%
     as_tibble() %>%
     apply(2, quantile, probs = c(.025, .25, .5, .75, .975)) %>%
     as.data.frame() %>%
@@ -351,7 +352,10 @@ fe <- tst %>%
     pivot_longer(-1) %>%
     pivot_wider(names_from = rowname, values_from = value) %>%
     filter(str_detect(name, "Intercept|phi|lp_|lprior", T)) %>%
-    mutate(name = factor(name, lv, lb)) %>%
+        mutate(name = factor(name, lv, lb))
+}
+
+fe <- plot_e(tst) %>%
     ggplot(aes(name, `50%`)) +
     geom_hline(yintercept = 0, linetype = "dotted") +
     geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
@@ -420,15 +424,7 @@ tst <- brm(
 lv <- c( "b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban" )
 lb <- c( "Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban" )
 
-fe <- tst %>%
-    as_tibble() %>%
-    apply(2, quantile, probs = c(.025, .25, .5, .75, .975)) %>%
-    as.data.frame() %>%
-    rownames_to_column() %>%
-    pivot_longer(-1) %>%
-    pivot_wider(names_from = rowname, values_from = value) %>%
-    filter(str_detect(name, "Intercept|phi|lp_|lprior", T)) %>%
-    mutate(name = factor(name, lv, lb)) %>%
+fe <- plot_e(tst) %>%
     ggplot(aes(name, `50%`)) +
     geom_hline(yintercept = 0, linetype = "dotted") +
     geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
@@ -547,18 +543,6 @@ mbfnc <- brm(
 
 lv <- c("b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban")
 lb <- c("Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban")
-
-plot_e <- function(x) {
-    x %>%
-        as_tibble() %>%
-        apply(2, quantile, probs = c(.025, .25, .5, .75, .975)) %>%
-        as.data.frame() %>%
-        rownames_to_column() %>%
-        pivot_longer(-1) %>%
-        pivot_wider(names_from = rowname, values_from = value) %>%
-        filter(str_detect(name, "Intercept|phi|lp_|lprior", T)) %>%
-        mutate(name = factor(name, lv, lb))
-}
 
 bind_rows(
     "Pregnancy care" = plot_e(mpc),
