@@ -191,37 +191,6 @@ kable() %>%
     pack_rows("MomConnect", 19, 20)
 ```
 
-### Demographics and per-protocol
-
-This shows that the two groups are comparable as there are no signigicant
-differences in demographics. 
-
-```{r demo_pp, results='asis'}
-rbind(
-    d_ %>% tabstat(age, pp),
-    d_ %>% tabstat(edu, pp),
-    d_ %>% tabstat(area, pp),
-    d_ %>% tabstat(race, pp),
-    d_ %>% tabstat(nat, pp),
-    d_ %>% tabstat(work, pp),
-    d_ %>% tabstat(earn, pp),
-    d_ %>% tabstat(partner, pp),
-    d_ %>% tabstat(momconnect, pp)
-) %>%
-kable() %>%
-    kable_classic(full_width = F, html_font = "Cambria") %>%
-    add_header_above(c(" " = 1, "Video" = 2, " " = 1, " " = 1)) %>%
-    pack_rows("Age", 1, 3) %>%
-    pack_rows("Education", 4, 5) %>%
-    pack_rows("Area", 6, 7) %>%
-    pack_rows("Race", 8, 9) %>%
-    pack_rows("Nationality", 10, 11) %>%
-    pack_rows("Work", 12, 13) %>%
-    pack_rows("Earning", 14, 16) %>%
-    pack_rows("Partner", 17, 18) %>%
-    pack_rows("MomConnect", 19, 20)
-```
-
 ### Scores distribution
 
 There are 11 individuals with at least one missing questions, sensitivity will
@@ -244,37 +213,6 @@ classification, clearer increase in the ITT.
 ```{r score_distribution_plot}
 set.seed(2908)
 dm <- mice::mice(d_, 10, print = F)
-```
-
-```{r plot_dist, fig.dim = c(7, 7)}
-d5 <- complete(dm, 5) %>%
-    mutate(score = rowSums(across(starts_with("k"))))
-
-fpp <- d5 %>%
-    ggplot(aes(factor(pp), score))  + geom_boxplot() +
-    labs(x = "PP") + coord_flip()
-fitt <- d5 %>%
-    ggplot(aes(factor(itt), score))  + geom_boxplot() +
-    labs(x = "ITT") + coord_flip()
-fage <- d5 %>%
-    ggplot(aes(factor(age), score))  + geom_boxplot() +
-    labs(x = "ITT") + coord_flip()
-fedu <- d5 %>%
-    ggplot(aes(factor(edu), score))  + geom_boxplot() +
-    labs(x = "edu") + coord_flip()
-fwork <- d5 %>%
-    ggplot(aes(factor(work), score))  + geom_boxplot() +
-    labs(x = "work") + coord_flip()
-fpartner <- d5 %>%
-    ggplot(aes(factor(partner), score))  + geom_boxplot() +
-    labs(x = "partner") + coord_flip()
-fmom <- d5 %>%
-    ggplot(aes(factor(momconnect), score))  + geom_boxplot() +
-    labs(x = "Momconnect") + coord_flip()
-farea <- d5 %>%
-    ggplot(aes(factor(area), score))  + geom_boxplot() +
-    labs(x = "Area") + coord_flip()
-(fpp + fitt + fage + fedu) / (fwork + fpartner + fmom + farea)
 ```
 
 ## Count outcome {.tabset .tabset.pills}
@@ -305,7 +243,7 @@ dm1 %>%
     ggplot(aes(score, fill = "Emprical dat")) +
     geom_density(alpha = .3) +
     coord_cartesian(expand = F) +
-    geom_line(aes(score, dens, color = name), data = bind_rows(
+    geom_line(aes(score, dens, color = name, linetype = 'name'), data = bind_rows(
         bind_cols(score = x, dens = bb, name = "Beta-binomial"),
         bind_cols(score = xi, dens = ps, name = "Poisson"),
         bind_cols(score = xi, dens = nb, name = "Negative-binomial")
@@ -322,100 +260,21 @@ distribution is $n\mu$.
 
 ```{r beta_binom, fig.dim = c(9, 4)}
 library(brms)
-n = 28
-dm1 <- complete(dm, 1) %>%
-    mutate(
-        score = rowSums(across(starts_with("k"))),
-        iid = id_, n = n
-    )
-tst <- brm(
-    score | trials(n) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1,
-    family = beta_binomial(),
-    prior = c(
-        set_prior("normal(0,3)", class = "Intercept"),
-        set_prior("normal(0,3)", class = "b")
-    #     # set_prior("cauchy(0,2)", class = "sd")
+
+n <- 28
+ad <- complete(dm, "all") %>%
+    lapply(function(x) {
+        mutate(x,
+            score = rowSums(across(starts_with("k"))),
+            iid = id_, n = n
+        )
+    })
+
+fit <- brm_multiple(
+    bf(
+        score | trials(n) ~ itt + age + edu + work + partner + momconnect + area
     ),
-    # control = list(adapt_delta = 0.99),
-    chains = 1, refresh = 0
-)
-
-lv <- c("b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban")
-lb <- c("Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban")
-
-prep_e <- function(x) {
-    x %>%
-    as_tibble() %>%
-    apply(2, quantile, probs = c(.025, .25, .5, .75, .975)) %>%
-    as.data.frame() %>%
-    rownames_to_column() %>%
-    pivot_longer(-1) %>%
-    pivot_wider(names_from = rowname, values_from = value) %>%
-    filter(str_detect(name, "Intercept|phi|lp_|lprior", T)) %>%
-        mutate(name = factor(name, lv, lb))
-}
-
-plot_e <- function(data) {
-    data %>%
-    ggplot(aes(name, `50%`)) +
-    geom_hline(yintercept = 0, linetype = "dotted") +
-    geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
-    geom_linerange(aes(ymin = `25%`, ymax = `75%`), size = 1.5) +
-    geom_point(shape = 21, fill = "grey90", size = 2) +
-    coord_flip() +
-    labs(
-        title = "Estimated coefficients",
-        x = "", y = "Coeficient (logit scale)"
-    )
-}
-
-fe <- prep_e(tst) %>% plot_e()
-
-library('emmeans')
-em <- emmeans(
-    tst, list("itt", "age", "edu", "work", "partner", "momconnect", "area"),
-    type = "response", offset = 0
-)
-
-lv <- c("itt", "age", "edu", "work", "partner", "momconnect", "area")
-lb <- c("Intervention", "Age", "Education", "Working", "Have a partner", "Use MomConnect", "Area")
-
-fi <- em %>%
-    purrr::map(as_tibble) %>%
-    bind_rows() %>%
-    pivot_longer(c(itt, age, edu, work, partner, momconnect, area)) %>%
-    drop_na() %>%
-    mutate(name = factor(name, lv, lb)) %>%
-    mutate(across(1:3, function(x) x * n)) %>%
-    ggplot(aes(name, prob, ymin = lower.HPD, ymax = upper.HPD, color = value)) +
-    geom_linerange(position = position_dodge2(.51)) +
-    geom_point(position = position_dodge2(.51)) +
-    geom_text(aes(y = upper.HPD+.21, label = value), position = position_dodge2(1), size = 3) +
-    coord_flip() +
-    guides(color = 'none') +
-    labs(y = "Total score", x = '', title = "Estimated score")
-
-fe + fi + plot_annotation(tag_levels = "A")
-```
-
-### New subgroup from Maya
-
-Remove questions `r c(21, 23, 34:35)`
-
-```{r new_subgroup, fig.dim = c(9, 4)}
-library(tidyselect)
-remove_ls <- c(21, 23, 34:35) %>% paste0("k", .)
-
-n = 28 - length(remove_ls)
-
-dm1 <- complete(dm, 1) %>%
-    select(-remove_ls) %>%
-    mutate(score = rowSums(across(starts_with("k"))), iid = id_, n = n)
-    
-tst <- brm(
-    score | trials(n) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1,
+    data = ad,
     family = beta_binomial(),
     prior = c(
         set_prior("normal(0,3)", class = "Intercept"),
@@ -424,191 +283,49 @@ tst <- brm(
     chains = 1, refresh = 0
 )
 
-lv <- c( "b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban" )
-lb <- c( "Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban" )
+inv_logit <- function(x) exp(x) / (1 + exp(x))
 
-fe <- prep_e(tst) %>% plot_e()
+fit %>%
+    as_draws_df() %>%
+    allot(draws)
 
-em <- emmeans(
-    tst, list("itt", "age", "edu", "work", "partner", "momconnect", "area"),
-    type = "response", offset = 0
-)
+get_diff_CI <- function(treat_v, ref) {
+    treat <- as.matrix(draws[, 1:9]) %*% matrix(treat_v, 9, 1)
+    treat <- inv_logit(treat) * n
+    not <- as.matrix(draws[, 1:9]) %*% matrix(ref, 9, 1)
+    not <- inv_logit(not) * n
+    quantile(treat - not, probs = c(.025, .25, .5, .75, .975))
+}
 
-lv <- c(
-    "itt",
-    "age",
-    "edu",
-    "work",
-    "partner",
-    "momconnect",
-    "area"
-)
-lb <- c(
-    "Intervention",
-    "Age",
-    "Education",
-    "Working",
-    "Have a partner",
-    "Use MomConnect",
-    "Area"
-)
+colnames(draws[1:9])
 
-fi <- em %>%
-    purrr::map(as_tibble) %>%
-    bind_rows() %>%
-    pivot_longer(c(itt, age, edu, work, partner, momconnect, area)) %>%
-    drop_na() %>%
-    mutate(name = factor(name, lv, lb)) %>%
-    mutate(across(1:3, function(x) x * n)) %>%
-    ggplot(aes(name, prob, ymin = lower.HPD, ymax = upper.HPD, color = value)) +
-    geom_linerange(position = position_dodge2(.51)) +
-    geom_point(position = position_dodge2(.51)) +
-    geom_text(aes(y = upper.HPD+.21, label = value), position = position_dodge2(1), size = 3) +
-    coord_flip() +
-    guides(color = 'none') +
-    labs(y = "Total score", x = '', title = "Estimated score")
-
-fe + fi + plot_annotation(tag_levels = "A")
-```
-
-### Old subgroups - ITT
-
-> Also removed questions `c(21, 23, 30, 32:35)`
-
-```{r score_group}
-select <- dplyr::select
-complete(dm, 1) %>%
-    pivot_longer(starts_with("k"), names_to = "q") %>%
-    select(id_, q, value) %>%
-    filter(!q %in% remove_ls) %>%
-    left_join(cate, "q") %>%
-    mutate(across(4:7, function(x) value * (x - 1))) %>%
-    group_by(id_) %>%
-    summarise(
-        pc = sum(pc),
-        bf = sum(bf),
-        nc = sum(nc),
-        bfnc = sum(bfnc)
-    ) %>%
-    allot(score_grp)
-
-# find n
-cate %>%
-    filter(!q %in% remove_ls) %>%
-    mutate(across(-1, function(x) sum(x == 2))) %>%
-    select(-1) %>%
-    head(1) %>%
-    allot(n_sub)
-```
-
-```{r itt_subgroup, fig.dim = c(7, 5)}
-complete(dm, 1) %>%
-    left_join(score_grp, "id_") %>%
-    mutate(
-        npc = n_sub$pc,
-        nbf = n_sub$bf,
-        nnc = n_sub$nc,
-        nbfnc = n_sub$bfnc
-    ) %>%
-    allot(dm1)
-
-prio <- c(
-    set_prior("normal(0,3)", class = "Intercept"),
-    set_prior("normal(0,3)", class = "b")
-)
-
-mpc <- brm(
-    pc | trials(npc) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1, family = beta_binomial(), chains = 1, prior = prio, refresh = 0
-)
-mbf <- brm(
-    bf | trials(nbf) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1, family = beta_binomial(), chains = 1, prior = prio, refresh = 0
-)
-mnc <- brm(
-    nc | trials(nnc) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1, family = beta_binomial(), chains = 1, prior = prio, refresh = 0
-)
-mbfnc <- brm(
-    bfnc | trials(nbfnc) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1, family = beta_binomial(), chains = 1, prior = prio, refresh = 0
-)
-
-lv <- c("b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban")
-lb <- c("Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban")
+lv <- c( "itt", "age25", "age35", "edu", "work", "partner", "mom", "area" )
+lb <- c( "Intervention", "Age 25-34 vs. 18-24", "Age > 35:", "Edu - Secondary+ vs Primary", "Currently working", "Have a partner", "Use MomConnect", "In urban area" )
 
 bind_rows(
-    "Pregnancy care" = prep_e(mpc),
-    "Breastfeed" = prep_e(mbf),
-    "Newborn care" = prep_e(mnc),
-    "Breastfeed & Newborn care" = prep_e(mbfnc),
-    .id = "sub"
+    itt = get_diff_CI(c(1, 1, 0, 0, 0, 0, 0, 0, 0), c(1, 0, 0, 0, 0, 0, 0, 0, 0)),
+    age25 = get_diff_CI(c(1, 1, 1, 0, 0, 0, 0, 0, 0), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    age35 = get_diff_CI(c(1, 1, 0, 1, 0, 0, 0, 0, 0), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    edu = get_diff_CI(c(1, 1, 0, 0, 1, 0, 0, 0, 0), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    work = get_diff_CI(c(1, 1, 0, 0, 0, 1, 0, 0, 0), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    partner = get_diff_CI(c(1, 1, 0, 0, 0, 0, 1, 0, 0), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    mom = get_diff_CI(c(1, 1, 0, 0, 0, 0, 0, 1, 0), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    area = get_diff_CI(c(1, 1, 0, 0, 0, 0, 0, 0, 1), c(1, 1, 0, 0, 0, 0, 0, 0, 0)),
+    .id = "name"
 ) %>%
-    ggplot(aes(name, `50%`)) +
+    mutate(name = factor(name, lv, lb)) %>%
+        ggplot(aes(name, `50%`)) +
+        geom_text(aes(label = round(`50%`, 2)), nudge_x = .3, color = 'grey60', size = 3) +
+        geom_text(aes(y = `97.5%`, label = round(`97.5%`, 2)), nudge_x = .3, color = 'grey60', size = 3) +
+        geom_text(aes(y = `2.5%`, label = round(`2.5%`, 2)), nudge_x = .3, color = 'grey60', size = 3) +
         geom_hline(yintercept = 0, linetype = "dotted") +
         geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
-        geom_linerange(aes(ymin = `25%`, ymax = `75%`), size = 1.5) +
+        geom_linerange(aes(ymin = `25%`, ymax = `75%`), linewidth = 1.5) +
         geom_point(shape = 21, fill = "grey90", size = 2) +
         coord_flip() +
-        facet_wrap(~sub) +
         labs(
-            title = "Estimated coefficients",
-            x = "", y = "Coeficient (logit scale)"
+            # title = "Estimated coefficients",
+            x = "", y = "Changes in score"
         )
+ggsave('score_change.png', width = 7, height = 4)
 ```
-
-## MomConnect outcome
-
-Use a subset of questions related to momConnect including `r c(10:13, 31, 36)`
-
-```{r momconnect_question, fig.dim = c(9, 4)}
-include_ls <- c(10:13, 31,36) %>% paste0("k", .)
-
-n = length(remove_ls)
-
-dm1 <- complete(dm, 1) %>%
-    select(itt, age, edu, work, partner, momconnect, area, id_, remove_ls) %>%
-    mutate(score = rowSums(across(starts_with("k"))), iid = id_, n = n)
-    
-tst <- brm(
-    score | trials(n) ~ itt + age + edu + work + partner + momconnect + area,
-    data = dm1,
-    family = beta_binomial(),
-    prior = c(
-        set_prior("normal(0,3)", class = "Intercept"),
-        set_prior("normal(0,3)", class = "b")
-    ),
-    chains = 1, refresh = 0
-)
-
-lv <- c( "b_ittYes", "b_age25M34", "b_age>35", "b_eduSecondaryandabove", "b_workYes", "b_partnerYes", "b_momconnectYes", "b_areaUrban" )
-lb <- c( "Intervention", "Age - 25-34", "Age > 35", "Edu - Secondary+", "Working", "Have a partner", "Use MomConnect", "Urban" )
-
-fe <- prep_e(tst) %>% plot_e()
-
-em <- emmeans(
-    tst, list("itt", "age", "edu", "work", "partner", "momconnect", "area"),
-    type = "response", offset = 0
-)
-
-lv <- c("itt", "age", "edu", "work", "partner", "momconnect", "area")
-lb <- c("Intervention", "Age", "Education", "Working", "Have a partner", "Use MomConnect", "Area")
-
-fi <- em %>%
-    purrr::map(as_tibble) %>%
-    bind_rows() %>%
-    pivot_longer(c(itt, age, edu, work, partner, momconnect, area)) %>%
-    drop_na() %>%
-    mutate(name = factor(name, lv, lb)) %>%
-    mutate(across(1:3, function(x) x * n)) %>%
-    ggplot(aes(name, prob, ymin = lower.HPD, ymax = upper.HPD, color = value)) +
-    geom_linerange(position = position_dodge2(.51)) +
-    geom_point(position = position_dodge2(.51)) +
-    geom_text(aes(y = upper.HPD+.21, label = value), position = position_dodge2(1), size = 3) +
-    coord_flip() +
-    guides(color = 'none') +
-    labs(y = "Total score", x = '', title = "Estimated score")
-
-fe + fi + plot_annotation(tag_levels = "A")
-```
-
