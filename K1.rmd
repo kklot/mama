@@ -67,7 +67,6 @@ d %<>%
 
 CHANGES:
 
-- change removed questions to `r c(21, 23, 34:35)`
 - Group 1 individual in no formal education to primary school
 
 Some issues:
@@ -75,38 +74,6 @@ Some issues:
 - [x] 8 have repeated IDs with different records --> assume they are different
 - [x] 2 with missing all the answer to knowledge --> removed
 - [x] no id 73, but two 28, it seems the second one is 73 based on video category
-
-**Statistical analysis**
-
-The questions were scored by allocating +1 point for each correct answer and 0
-points if participants answered incorrectly or if they answered: “I don’t know.”
-The sum score is thus can be considered as discrete counts with bounded value at
-the total number of questions (28 in the case of general question, 21 in the
-case of subset of questions relevant to the video, and varied in subgroup
-analyse). Thus, we used the Beta-Binomal distribution which can account for
-over- and under-dispersion and the fact that the distribution is bounded. The
-distribution outperformed the Poisson and Negative Binomal when compared to the
-emprical distribution (Figure X - Appendix).
-
-We compared demographic variables distribution between the trial arms with
-Chi-square or exact Fisher test as appropriated. We conducted multiple
-regression analyses to explore the effect on the overall knowledge scores of the
-SAS Intervention group with intention to treat approach. We also conducted the
-analyses by four topic sub-groups within the knowledge questionnaire. The topic
-sub-groups include breastfeeding, newborn care, pregnancy care, and
-breastfeeding and newborn care. The regression models were adjusted for the
-demographics variables including age, sex, education level, as well as whether
-the mother was enrolled in the MomConnect program. The models were fitted using
-Bayesian inference framework using the statistical program R 4.0.2. We reported
-the IQR and 95% uncertainty interval of the posterior distribution of the parameter estimates as well as the marignal estimates of the transformed original score to aid interpretion.
-
-There were 11 individuals with missing data in one of the 28 knowledge
-questions; in these cases, we applied imputation to randomly sampling the
-questions’ response and conducted analyses on the imputed samples to check
-sensitivity of the results against those missing values. Finally, we analyzed
-the maternal satisfaction data by calculating a mean score for each of the
-different subjective user satisfaction questions, to capture maternal
-satisfaction related to use of the SAS videos.
 
 ```{r meta_group}
 read.csv("cate.csv") %>%
